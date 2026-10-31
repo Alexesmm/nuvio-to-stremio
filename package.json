@@ -1,0 +1,11 @@
+{
+  "name": "library-copy-tool",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "description": "Static site that copies addons, library and watch progress from a Nuvio account to a Stremio account.",
+  "scripts": {
+    "test": "node --test tests/plan.test.mjs"
+  }
+}
