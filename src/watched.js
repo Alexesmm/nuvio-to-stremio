@@ -63,6 +63,17 @@ export function orderedIds(videos) {
     .map(({ video }) => video.id);
 }
 
+/* The ids a field marks watched, over this episode list. */
+export async function watchedIds(field, videos) {
+  if (!field) return [];
+  const ids = orderedIds(videos);
+  const old = await decodeField(field);
+  const anchorAt = ids.indexOf(old.anchor);
+  if (anchorAt < 0) return [];
+  const offset = old.anchorLength - anchorAt - 1;
+  return ids.filter((_, i) => old.bits[i + offset]);
+}
+
 /* The field with `vids` also marked watched, and how many of them are new. Episodes already
    marked stay marked. A field whose anchor is no longer in the list starts empty, as in core. */
 export async function mergeWatched(field, videos, vids) {

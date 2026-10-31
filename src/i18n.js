@@ -1,7 +1,7 @@
 // The site's text. Portuguese for Portuguese browsers, English for everyone else.
 const TEXT = {
   en: {
-    title: 'Move your addons and library from Nuvio to Stremio',
+    title: 'Copy your addons and library between Nuvio and Stremio',
     lead: 'Copies your addons, library, watch progress and watched episodes to your Stremio account. Your Nuvio account stays exactly as it is.',
     howTitle: 'What happens to your data',
     how1: 'Your passwords go directly from this browser to Nuvio and Stremio. This site has no server and stores nothing.',
@@ -80,18 +80,38 @@ const TEXT = {
     errRate: 'Too many attempts. Wait a little and try again.',
     errExpired: 'Your session ended. Start over and sign in again.',
     errRead: 'Could not read your account. Try again.',
-    errWrite: 'Stremio did not accept the change. Try again.',
+    errWrite: 'The service did not accept the change. Try again.',
     errUnknown: 'Something went wrong. Try again.',
     errBrowser: 'This browser is too old for this page. Please use a current version of Chrome, Edge, Firefox or Safari.',
     errEmpty: 'Fill in your email and password.',
     language: 'Português',
+    themeLight: 'Light mode',
+    themeDark: 'Dark mode',
+    directionTitle: 'What do you want to do?',
+    directionToStremio: 'Nuvio to Stremio',
+    directionToNuvio: 'Stremio to Nuvio',
+    repositoryLink: 'Source code',
+    leadToNuvio: 'Copies your addons, library, watch progress and watched titles to your Nuvio account. Your Stremio account stays exactly as it is.',
+    how3ToNuvio: 'Nothing is removed from your Nuvio account. Addons and titles are only added or updated.',
+    profileToNuvio: 'Nuvio profile to copy to',
+    profileHelpToNuvio: 'Your Stremio account has no profiles, so choose which Nuvio profile receives the copy.',
+    reviewTitleToNuvio: 'What will change on your Nuvio account',
+    watchedNewToNuvio: 'Titles and episodes marked watched',
+    addonFailedHelpToNuvio: 'These only exist on one device, such as a local addon, so they cannot be copied.',
+    notCopiedToNuvio: 'Stremio settings have no equivalent in Nuvio. Watched episodes of series without an IMDb id are not copied.',
+    applyToNuvio: 'Copy to Nuvio',
+    nothingToNuvio: 'Your Nuvio account already has everything. There is nothing to copy.',
+    doneHelpToNuvio: 'Open Nuvio and wait a moment, or reopen it, for everything to appear.',
+    doneTitlesToNuvio: 'Items copied: {0}',
+    sharedAddons: 'This profile shares addons with the main Nuvio profile, so new addons go there.',
+    errChanged: 'The addons on your Nuvio account changed since you reviewed them, so nothing was replaced. Try again to review the current list.',
     footerLicense: 'Free and open source (GPL-3.0).',
     developerGithub: 'Developer on GitHub',
     type_movie: 'movie',
     type_series: 'series'
   },
   pt: {
-    title: 'Leve seus addons e sua biblioteca do Nuvio para o Stremio',
+    title: 'Copie seus addons e sua biblioteca entre o Nuvio e o Stremio',
     lead: 'Copia addons, biblioteca, progresso e episódios assistidos para a sua conta Stremio. Sua conta Nuvio continua exatamente como está.',
     howTitle: 'O que acontece com seus dados',
     how1: 'Suas senhas vão direto deste navegador para o Nuvio e o Stremio. Este site não tem servidor e não guarda nada.',
@@ -170,11 +190,31 @@ const TEXT = {
     errRate: 'Muitas tentativas. Espere um pouco e tente de novo.',
     errExpired: 'Sua sessão terminou. Comece de novo e entre outra vez.',
     errRead: 'Não foi possível ler sua conta. Tente de novo.',
-    errWrite: 'O Stremio não aceitou a alteração. Tente de novo.',
+    errWrite: 'O serviço não aceitou a alteração. Tente de novo.',
     errUnknown: 'Algo deu errado. Tente de novo.',
     errBrowser: 'Este navegador é antigo demais para esta página. Use uma versão atual do Chrome, Edge, Firefox ou Safari.',
     errEmpty: 'Preencha o email e a senha.',
     language: 'English',
+    themeLight: 'Modo claro',
+    themeDark: 'Modo escuro',
+    directionTitle: 'O que você quer fazer?',
+    directionToStremio: 'Do Nuvio para o Stremio',
+    directionToNuvio: 'Do Stremio para o Nuvio',
+    repositoryLink: 'Código-fonte',
+    leadToNuvio: 'Copia addons, biblioteca, progresso e títulos assistidos para a sua conta Nuvio. Sua conta Stremio continua exatamente como está.',
+    how3ToNuvio: 'Nada é removido da sua conta Nuvio. Addons e títulos são apenas adicionados ou atualizados.',
+    profileToNuvio: 'Perfil do Nuvio que vai receber a cópia',
+    profileHelpToNuvio: 'A conta Stremio não tem perfis, então escolha qual perfil do Nuvio recebe a cópia.',
+    reviewTitleToNuvio: 'O que vai mudar na sua conta Nuvio',
+    watchedNewToNuvio: 'Títulos e episódios marcados como assistidos',
+    addonFailedHelpToNuvio: 'Estes só existem em um aparelho, como um addon local, então não podem ser copiados.',
+    notCopiedToNuvio: 'As configurações do Stremio não têm equivalente no Nuvio. Episódios assistidos de séries sem ID do IMDb não são copiados.',
+    applyToNuvio: 'Copiar para o Nuvio',
+    nothingToNuvio: 'Sua conta Nuvio já tem tudo. Não há nada para copiar.',
+    doneHelpToNuvio: 'Abra o Nuvio e espere um momento, ou reabra o app, para tudo aparecer.',
+    doneTitlesToNuvio: 'Itens copiados: {0}',
+    sharedAddons: 'Este perfil compartilha addons com o perfil principal do Nuvio, então os novos addons vão para ele.',
+    errChanged: 'Os addons da sua conta Nuvio mudaram depois da revisão, então nada foi substituído. Tente de novo para revisar a lista atual.',
     footerLicense: 'Gratuito e de código aberto (GPL-3.0).',
     developerGithub: 'Desenvolvedor no GitHub',
     type_movie: 'filme',
@@ -191,6 +231,10 @@ export function currentLanguage() {
 export function toggleLanguage() {
   language = language === 'pt' ? 'en' : 'pt';
   document.documentElement.lang = language === 'pt' ? 'pt-BR' : 'en';
+}
+
+export function hasText(key) {
+  return key in TEXT[language] || key in TEXT.en;
 }
 
 export function t(key, ...values) {

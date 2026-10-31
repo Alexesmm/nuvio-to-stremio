@@ -1,57 +1,47 @@
-# Library copy tool
+# Nuvio and Stremio account copy
 
-A small website that copies your addons, library, watch progress and watched episodes from a Nuvio account to a Stremio account.
+Copy your addons, library, watch progress and watched titles between a Nuvio account and a Stremio account, in either direction, without installing anything.
 
-Unofficial. Not affiliated with or endorsed by Nuvio or Stremio.
+Unofficial tool, not affiliated with or endorsed by Nuvio or Stremio.
 
-## How your data is handled
+## How it works
 
-- **There is no server.** It is a static site, and your browser talks directly to Nuvio's and Stremio's own APIs. You can check this in your browser's network tab.
-- **Nothing is stored.** Sessions stay in the page's memory, and **Finish** signs you out of both. No cookies, no local storage, no analytics.
-- **You review everything first.** No change happens before you press the button.
-- **Nothing is removed from Stremio.** It only adds and updates, and your Nuvio account is only read. On a conflict in watch progress, the most recent one wins.
+1. Choose the direction: Nuvio to Stremio, or Stremio to Nuvio.
+2. Sign in to both accounts.
+3. Review everything that will change. You can download a backup and leave out addons or the library.
+4. Copy, then sign out.
+
+## Your data
+
+- **There is no server.** Your browser talks directly to Nuvio and Stremio, and your passwords go only to them. You can confirm this in your browser's network tab.
+- **Nothing is stored.** Sessions stay in the page's memory and end when you finish. There are no cookies or analytics.
+- **Nothing is removed.** The copy only adds and updates. The other account is only read. When both accounts have progress for the same title, the most recent one wins.
+
+The backup file contains your addon links, which may include debrid keys, so keep it private.
 
 ## What is copied
 
-| Data | Copied? |
-|---|---|
-| Addons that work as Stremio addons, including keys in their links | Yes |
-| Library | Yes |
-| Watch progress | Yes, the latest position per title |
-| Watched movies and episodes | Yes, for titles with IMDb ids |
-| Nuvio plugins, settings, profiles, collections | No equivalent on Stremio |
+| Data | Nuvio to Stremio | Stremio to Nuvio |
+|---|---|---|
+| Addons | Those that work as Stremio addons | All online addons |
+| Library | Yes | Yes |
+| Watch progress | Yes | Yes |
+| Watched movies | Yes | Yes |
+| Watched episodes | Series with IMDb ids | Series with IMDb ids |
 
-Stremio accounts have no profiles, so the copy comes from one Nuvio profile.
+Nuvio plugins, settings, profiles, collections and debrid settings kept only in the app are not copied. Stremio accounts have no profiles, so one Nuvio profile is used.
 
-**Titles with other ids.** A Nuvio item can use an id such as `tmdb:550`. The site looks in Stremio's public catalog for exactly the same name and year. If there is no certain match, the title is listed and skipped rather than risk adding the wrong one.
+### Good to know
 
-## Deploy on Vercel (free)
+- **Titles with other ids.** Nuvio can list a title as `tmdb:550`, while Stremio uses IMDb ids. The site looks for exactly the same name and year in Stremio's catalog. If there is no certain match, the title is listed and skipped.
+- **Titles already on Nuvio under another id.** When copying to Nuvio, a title with the same name is not added to the library again, unless the years show it is a different title. Its progress and watched marks are still copied under the Stremio id.
+- **Accounts made with Google or Facebook** can sign in to Stremio with a phone. Nuvio sign-in uses email and password.
+- **Shared addons.** If a Nuvio profile shares addons with the main profile, new addons go to the main profile.
 
-The site has no build step.
+## Development
 
-**From GitHub:** push this folder to a repository. In Vercel, choose **Add New > Project**, import it, keep the framework as **Other**, and deploy.
-
-**From this folder:**
-
-```powershell
-npx vercel --prod
-```
-
-`vercel.json` sets the security headers, including a Content-Security-Policy that only allows the site's own scripts. Avoid "nuvio" or "stremio" in the project name, since those names belong to their owners and a site asking for passwords should not look official.
-
-## Run and test locally
-
-```powershell
-npm test               # conversion rules
-npx serve .            # open the site
-```
-
-## Limits
-
-- It uses the public API Nuvio documents for third-party clients and the API the Stremio apps use. Either can change, and the hosted services have their own terms.
-- Series watched marks use Cinemeta's episode list, so Kitsu titles keep their progress but not their per-episode watched marks.
-- Accounts made with Google or Facebook can use the phone sign-in for Stremio. Nuvio sign-in is by email and password.
+A static site with no build step and no dependencies. Run the tests with `npm test`.
 
 ## License
 
-GPL-3.0. See [LICENSE](LICENSE).
+[GPL-3.0](LICENSE)

@@ -109,6 +109,44 @@ export async function nuvioData(session, profile, onStep = () => {}) {
   return { addons: Array.isArray(addons.body) ? addons.body : [], library, progress: Array.isArray(progressRows) ? progressRows : [], watched };
 }
 
+/* The list as it is right now, to build a full replacement from. */
+export async function nuvioAddonRows(session, profileIndex) {
+  const r = await request(`${NUVIO_URL}/rest/v1/addons?select=*&profile_id=eq.${profileIndex}&order=sort_order`, { headers: nuvioHeaders(session) });
+  if (!r.ok) throw new ServiceError(r.status === 401 ? 'expired' : 'read', 'addons');
+  return Array.isArray(r.body) ? r.body : [];
+}
+
+async function nuvioWrite(session, name, body) {
+  const r = await request(`${NUVIO_URL}/rest/v1/rpc/${name}`, { method: 'POST', headers: nuvioHeaders(session), body: JSON.stringify(body) });
+  if (!r.ok) throw new ServiceError(r.status === 401 ? 'expired' : r.status === 429 ? 'rate' : 'write', name);
+}
+
+/* Replaces the profile's addons: `addons` must be the complete list (plan-nuvio.js). */
+export function nuvioPushAddons(session, profileIndex, addons) {
+  return nuvioWrite(session, 'sync_push_addons', { p_profile_id: profileIndex, p_addons: addons });
+}
+
+/* Nuvio's own clients send at most 500 items per request. */
+async function inBatches(rows, send, onSent) {
+  const SIZE = 500;
+  for (let i = 0; i < rows.length; i += SIZE) {
+    await send(rows.slice(i, i + SIZE));
+    onSent(Math.min(SIZE, rows.length - i));
+  }
+}
+
+export function nuvioPushLibrary(session, profileIndex, items, onSent = () => {}) {
+  return inBatches(items, (batch) => nuvioWrite(session, 'sync_push_library_items', { p_profile_id: profileIndex, p_items: batch }), onSent);
+}
+
+export function nuvioPushProgress(session, profileIndex, entries, onSent = () => {}) {
+  return inBatches(entries, (batch) => nuvioWrite(session, 'sync_push_watch_progress', { p_profile_id: profileIndex, p_entries: batch }), onSent);
+}
+
+export function nuvioPushWatched(session, profileIndex, items, onSent = () => {}) {
+  return inBatches(items, (batch) => nuvioWrite(session, 'sync_push_watched_items', { p_profile_id: profileIndex, p_items: batch }), onSent);
+}
+
 export async function nuvioSignOut(session) {
   try {
     await request(`${NUVIO_URL}/auth/v1/logout`, { method: 'POST', headers: nuvioHeaders(session), timeout: 5000 });

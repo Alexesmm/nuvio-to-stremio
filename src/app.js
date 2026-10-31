@@ -1,10 +1,16 @@
 // The screens. All text goes through textContent, since addon names and titles are other
 // people's data. Passwords leave the inputs as soon as they are used.
-import { currentLanguage, t, toggleLanguage } from './i18n.js';
+import { currentLanguage, hasText, t, toggleLanguage } from './i18n.js';
 import { addonHost, collectTitles, matchTitle, mergedAddons, planLibrary, sortAddons, usableId } from './plan.js';
+import { mergedNuvioAddons, planNuvioAddons, planToNuvio, sameAddonList } from './plan-nuvio.js';
 import * as api from './services.js';
 
+const REPOSITORY_URL = 'https://github.com/Alexesmm/nuvio-to-stremio';
+const PROFILE_URL = 'https://github.com/Alexesmm';
+
 const state = {
+  direction: 'toStremio',
+  theme: 'dark',
   screen: 'start',
   nuvio: null,
   stremio: null,
@@ -40,8 +46,38 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
+/* Text that differs when copying to Nuvio lives under the same key with this ending. */
+function td(key, ...values) {
+  const other = `${key}ToNuvio`;
+  return state.direction === 'toNuvio' && hasText(other) ? t(other, ...values) : t(key, ...values);
+}
+
+function icon(paths) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  for (const [name, value] of Object.entries({ viewBox: '0 0 24 24', width: '18', height: '18', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' }))
+    svg.setAttribute(name, value);
+  for (const d of paths) {
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', d);
+    svg.append(path);
+  }
+  return svg;
+}
+
+const GLOBE = ['M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18', 'M3 12h18', 'M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9s1.3-6.4 3.8-9'];
+const SUN = ['M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8', 'M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'];
+const MOON = ['M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5'];
+
+function toggleTheme() {
+  state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  if (state.theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  else document.documentElement.removeAttribute('data-theme');
+  render();
+}
+
 function errorText(error) {
-  const key = { login: 'errLogin', network: 'errNetwork', rate: 'errRate', expired: 'errExpired', read: 'errRead', write: 'errWrite' }[error && error.code];
+  const key = { login: 'errLogin', network: 'errNetwork', rate: 'errRate', expired: 'errExpired', read: 'errRead', write: 'errWrite', changed: 'errChanged' }[error && error.code];
   return key || 'errUnknown';
 }
 
@@ -116,10 +152,22 @@ async function signInNuvio(typed) {
   setBusy('');
 }
 
+function directionChoice() {
+  const option = (value, label) =>
+    el(
+      'label',
+      { class: `direction-option${state.direction === value ? ' on' : ''}` },
+      el('input', { id: `direction-${value}`, type: 'radio', name: 'direction', checked: state.direction === value, on: { change: () => { state.direction = value; state.error = ''; render(); } } }),
+      label
+    );
+  return el('fieldset', { class: 'direction' }, el('legend', {}, t('directionTitle')), option('toStremio', t('directionToStremio')), option('toNuvio', t('directionToNuvio')));
+}
+
 function screenStart() {
   return el(
     'section',
     { class: 'card', 'aria-labelledby': 'h-nuvio' },
+    directionChoice(),
     el('h2', { id: 'h-nuvio' }, t('step1')),
     statusLine(),
     signInForm('nuvio', signInNuvio)
@@ -219,8 +267,8 @@ function screenProfile() {
   return el(
     'section',
     { class: 'card', 'aria-labelledby': 'h-profile' },
-    el('h2', { id: 'h-profile' }, t('profile')),
-    el('p', {}, t('profileHelp')),
+    el('h2', { id: 'h-profile' }, td('profile')),
+    el('p', {}, td('profileHelp')),
     el(
       'div',
       { class: 'stack', role: 'radiogroup', 'aria-labelledby': 'h-profile' },
@@ -262,7 +310,40 @@ async function matchIds(titles) {
   return ids;
 }
 
+function seriesCache() {
+  const cache = new Map();
+  return (id) => {
+    if (!cache.has(id)) cache.set(id, api.seriesVideos(id).catch(() => []));
+    return cache.get(id);
+  };
+}
+
+async function loadToNuvio() {
+  state.error = '';
+  state.screen = 'profile';
+  setBusy('reading');
+  try {
+    const labels = { addons: 'readAddons', library: 'readLibrary', progress: 'readProgress', watched: 'readWatched' };
+    state.source = await api.nuvioData(state.nuvio, state.profile, (step) => setBusy(labels[step]));
+    setBusy('readStremio');
+    const [addons, library] = await Promise.all([api.stremioAddons(state.stremio), api.stremioLibrary(state.stremio)]);
+    state.before = { addons, library };
+    const planned = planNuvioAddons(addons, state.source.addons);
+    state.addons = { ready: planned.add, failed: planned.skipped, already: planned.already, disabled: [] };
+    setBusy('planning');
+    state.plan = await planToNuvio({ stremioItems: library, nuvio: state.source, videosOf: seriesCache() });
+    state.includeAddons = true;
+    state.includeLibrary = true;
+    state.backupDone = false;
+    state.screen = 'review';
+  } catch (error) {
+    state.error = errorText(error);
+  }
+  setBusy('');
+}
+
 async function loadEverything() {
+  if (state.direction === 'toNuvio') return loadToNuvio();
   state.error = '';
   state.screen = 'profile';
   setBusy('reading');
@@ -296,12 +377,7 @@ async function loadEverything() {
     const titles = collectTitles(state.source);
     const ids = await matchIds(titles);
     setBusy('planning');
-    const cache = new Map();
-    const videosOf = (id) => {
-      if (!cache.has(id)) cache.set(id, api.seriesVideos(id).catch(() => []));
-      return cache.get(id);
-    };
-    state.plan = await planLibrary({ titles, ids, stremioItems: library, videosOf });
+    state.plan = await planLibrary({ titles, ids, stremioItems: library, videosOf: seriesCache() });
     state.includeAddons = true;
     state.includeLibrary = true;
     state.backupDone = false;
@@ -331,11 +407,9 @@ function addonLabel(entry) {
 }
 
 function downloadBackup() {
-  const data = {
-    createdAt: new Date().toISOString(),
-    nuvio: state.source,
-    stremioBefore: state.before
-  };
+  const data = state.direction === 'toNuvio'
+    ? { createdAt: new Date().toISOString(), direction: state.direction, stremio: state.before, nuvioBefore: state.source }
+    : { createdAt: new Date().toISOString(), direction: state.direction, nuvio: state.source, stremioBefore: state.before };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   const link = el('a', { href: url, download: `accounts-backup-${new Date().toISOString().slice(0, 10)}.json` });
   document.body.append(link);
@@ -350,7 +424,42 @@ function hasWork() {
   return (state.includeAddons && state.addons.ready.length > 0) || (state.includeLibrary && state.plan.changes.length > 0);
 }
 
+async function applyToNuvio() {
+  state.error = '';
+  const result = { addons: 0, titles: 0, failed: false };
+  const { library, progress, watched } = state.plan;
+  const total = library.length + progress.length + watched.length;
+  const sent = (count) => {
+    result.titles += count;
+    setBusy('applyLibrary', result.titles, total);
+  };
+  try {
+    if (state.includeAddons && state.addons.ready.length) {
+      setBusy('applyAddons');
+      const profileIndex = state.profile.usesPrimaryAddons ? 1 : state.profile.index;
+      /* the push replaces the list: read it again, and stop if it changed since the review */
+      const rows = await api.nuvioAddonRows(state.nuvio, profileIndex);
+      if (!sameAddonList(rows, state.source.addons)) throw new api.ServiceError('changed');
+      await api.nuvioPushAddons(state.nuvio, profileIndex, mergedNuvioAddons(rows, state.addons.ready));
+      result.addons = state.addons.ready.length;
+    }
+    if (state.includeLibrary && total) {
+      setBusy('applyLibrary', 0, total);
+      await api.nuvioPushLibrary(state.nuvio, state.profile.index, library, sent);
+      await api.nuvioPushProgress(state.nuvio, state.profile.index, progress, sent);
+      await api.nuvioPushWatched(state.nuvio, state.profile.index, watched, sent);
+    }
+  } catch (error) {
+    result.failed = true;
+    state.error = errorText(error);
+  }
+  state.result = result;
+  state.screen = 'done';
+  setBusy('');
+}
+
 async function applyChanges() {
+  if (state.direction === 'toNuvio') return applyToNuvio();
   state.error = '';
   const result = { addons: 0, titles: 0, failed: false };
   try {
@@ -381,7 +490,7 @@ function screenReview() {
   return el(
     'section',
     { class: 'card review', 'aria-labelledby': 'h-review' },
-    el('h2', { id: 'h-review' }, t('reviewTitle')),
+    el('h2', { id: 'h-review' }, td('reviewTitle')),
     el(
       'div', { class: 'review-group', 'data-included': state.includeAddons },
       el('label', { class: 'scope-choice' },
@@ -392,9 +501,10 @@ function screenReview() {
       el('p', { class: 'scope-caption' }, t('addonsNew')),
       el('div', { class: 'review-details' },
         ready.length ? details(t('addonListNew', ready.length), nameList(ready, addonLabel)) : null,
-        failed.length ? details(t('addonListFailed', failed.length), [el('p', { class: 'muted' }, t('addonFailedHelp')), nameList(failed, addonLabel)], true) : null,
+        failed.length ? details(t('addonListFailed', failed.length), [el('p', { class: 'muted' }, td('addonFailedHelp')), nameList(failed, addonLabel)], true) : null,
         already.length ? details(t('addonListAlready', already.length), nameList(already, addonLabel)) : null,
-        disabled.length ? details(t('addonListDisabled', disabled.length), nameList(disabled, addonLabel)) : null
+        disabled.length ? details(t('addonListDisabled', disabled.length), nameList(disabled, addonLabel)) : null,
+        state.direction === 'toNuvio' && state.profile.usesPrimaryAddons && ready.length ? el('p', { class: 'muted' }, t('sharedAddons')) : null
       )
     ),
     el(
@@ -403,20 +513,27 @@ function screenReview() {
         el('input', { id: 'include-library', type: 'checkbox', checked: state.includeLibrary, on: { change: (e) => { state.includeLibrary = e.target.checked; render(); } } }),
         el('span', { class: 'scope-title' }, t('includeLibrary'))
       ),
-      el('dl', { class: 'stats' },
-        stat(t('titlesNew'), stats.added),
-        stat(t('libraryAdd'), stats.addedToLibrary),
-        stat(t('progressNew'), stats.progress),
-        stat(t('watchedNew'), stats.watchedEpisodes),
-        stat(t('unchanged'), stats.unchanged)
-      ),
+      state.direction === 'toNuvio'
+        ? el('dl', { class: 'stats' },
+            stat(t('libraryAdd'), stats.library),
+            stat(t('progressNew'), stats.progress),
+            stat(t('watchedNewToNuvio'), stats.watched),
+            stat(t('unchanged'), stats.unchanged)
+          )
+        : el('dl', { class: 'stats' },
+            stat(t('titlesNew'), stats.added),
+            stat(t('libraryAdd'), stats.addedToLibrary),
+            stat(t('progressNew'), stats.progress),
+            stat(t('watchedNew'), stats.watchedEpisodes),
+            stat(t('unchanged'), stats.unchanged)
+          ),
       unresolved.length ? details(
         t('unresolvedTitle', unresolved.length),
         [el('p', { class: 'muted' }, t('unresolvedHelp')), nameList(unresolved, (item) => `${item.name || item.contentId}${item.year ? ` (${item.year})` : ''}`)],
         true
       ) : null
     ),
-    el('div', { class: 'review-limits' }, details(t('notCopiedTitle'), el('p', { class: 'muted' }, t('notCopied')))),
+    el('div', { class: 'review-limits' }, details(t('notCopiedTitle'), el('p', { class: 'muted' }, td('notCopied')))),
     statusLine(),
     changes.length || ready.length
       ? el(
@@ -426,9 +543,9 @@ function screenReview() {
              el('button', { class: 'secondary', type: 'button', disabled: !!state.busy, on: { click: downloadBackup } }, state.backupDone ? t('backupDone') : t('backup')),
              el('p', { class: 'muted' }, t('backupHelp'))
            ),
-          el('button', { class: 'primary', type: 'button', disabled: !!state.busy || !hasWork(), on: { click: applyChanges } }, t('apply')),
+          el('button', { class: 'primary', type: 'button', disabled: !!state.busy || !hasWork(), on: { click: applyChanges } }, td('apply')),
         )
-      : el('div', { class: 'stack' }, el('p', { class: 'ok' }, t('nothing')), el('button', { class: 'primary', type: 'button', on: { click: finish } }, t('finish')))
+      : el('div', { class: 'stack' }, el('p', { class: 'ok' }, td('nothing')), el('button', { class: 'primary', type: 'button', on: { click: finish } }, t('finish')))
   );
 }
 
@@ -458,8 +575,8 @@ function screenDone() {
     { class: 'card', 'aria-labelledby': 'h-done' },
     el('h2', { id: 'h-done' }, result.failed ? t('partialTitle') : t('doneTitle')),
     statusLine(),
-    el('p', {}, result.failed ? t('partialHelp') : t('doneHelp')),
-    el('ul', { class: 'names' }, el('li', {}, t('doneAddons', result.addons)), el('li', {}, t('doneTitles', result.titles))),
+    el('p', {}, result.failed ? t('partialHelp') : td('doneHelp')),
+    el('ul', { class: 'names' }, el('li', {}, t('doneAddons', result.addons)), el('li', {}, td('doneTitles', result.titles))),
     el(
       'div',
       { class: 'actions' },
@@ -479,14 +596,15 @@ function render() {
     el(
       'header',
       { class: 'top' },
-      el('button', { class: 'link lang', type: 'button', lang: currentLanguage() === 'pt' ? 'en' : 'pt', on: { click: () => { toggleLanguage(); render(); } } }, t('language'))
+      el('button', { id: 'theme-button', class: 'link top-button', type: 'button', on: { click: toggleTheme } }, icon(state.theme === 'dark' ? SUN : MOON), t(state.theme === 'dark' ? 'themeLight' : 'themeDark')),
+      el('button', { id: 'language-button', class: 'link top-button lang', type: 'button', lang: currentLanguage() === 'pt' ? 'en' : 'pt', on: { click: () => { toggleLanguage(); render(); } } }, icon(GLOBE), t('language'))
     ),
     el('div', { class: 'layout' },
       el('div', { class: 'intro' },
         el('h1', {}, t('title')),
-        el('p', { class: 'lead' }, t('lead')),
+        el('p', { class: 'lead' }, td('lead')),
         state.screen === 'start'
-          ? el('section', { class: 'note' }, el('h2', {}, t('howTitle')), el('ul', {}, el('li', {}, t('how1')), el('li', {}, t('how2')), el('li', {}, t('how3'))))
+          ? el('section', { class: 'note' }, el('h2', {}, t('howTitle')), el('ul', {}, el('li', {}, t('how1')), el('li', {}, t('how2')), el('li', {}, td('how3'))))
           : null
       ),
       el('div', { class: 'flow' }, stepList(), screens[state.screen]())
@@ -494,7 +612,10 @@ function render() {
     el('footer', {},
       el('p', {}, t('disclaimer')),
       el('p', {}, t('footerLicense')),
-      el('p', {}, el('a', { href: 'https://github.com/Alexesmm', target: '_blank', rel: 'noopener noreferrer' }, t('developerGithub')))
+      el('p', { class: 'footer-links' },
+        el('a', { href: REPOSITORY_URL, target: '_blank', rel: 'noopener noreferrer' }, t('repositoryLink')),
+        el('a', { href: PROFILE_URL, target: '_blank', rel: 'noopener noreferrer' }, t('developerGithub'))
+      )
     )
   ];
   root.replaceChildren(...page.filter(Boolean));
