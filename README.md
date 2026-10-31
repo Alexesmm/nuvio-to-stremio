@@ -48,7 +48,7 @@ npx serve .            # open the site
 
 ## Limits
 
-- It uses the [public API Nuvio documents for third-party clients](https://api.nuvio.tv) and the API the Stremio apps use. Either can change, and the hosted services have their own terms.
+- It uses the public API Nuvio documents for third-party clients and the API the Stremio apps use. Either can change, and the hosted services have their own terms.
 - Series watched marks use Cinemeta's episode list, so Kitsu titles keep their progress but not their per-episode watched marks.
 - Accounts made with Google or Facebook can use the phone sign-in for Stremio. Nuvio sign-in is by email and password.
 

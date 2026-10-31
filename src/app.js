@@ -467,7 +467,7 @@ function render() {
   for (const input of root.querySelectorAll('input[type="email"], input[type="password"], input[type="text"]')) keep[input.id] = input.value;
   const screens = { start: screenStart, stremio: screenStremio, profile: screenProfile, review: screenReview, done: screenDone };
   document.title = t('title');
-  root.replaceChildren(
+  const page = [
     el(
       'header',
       { class: 'top' },
@@ -481,7 +481,8 @@ function render() {
     stepList(),
     screens[state.screen](),
     el('footer', {}, el('p', {}, t('disclaimer')), el('p', {}, t('footerLicense')))
-  );
+  ];
+  root.replaceChildren(...page.filter(Boolean));
   for (const [id, value] of Object.entries(keep)) {
     const input = document.getElementById(id);
     if (input) input.value = value;
