@@ -86,6 +86,7 @@ const TEXT = {
     errEmpty: 'Fill in your email and password.',
     language: 'Português',
     footerLicense: 'Free and open source (GPL-3.0).',
+    developerGithub: 'Developer on GitHub',
     type_movie: 'movie',
     type_series: 'series'
   },
@@ -175,6 +176,7 @@ const TEXT = {
     errEmpty: 'Preencha o email e a senha.',
     language: 'English',
     footerLicense: 'Gratuito e de código aberto (GPL-3.0).',
+    developerGithub: 'Desenvolvedor no GitHub',
     type_movie: 'filme',
     type_series: 'série'
   }
