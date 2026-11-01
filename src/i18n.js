@@ -222,7 +222,8 @@ const TEXT = {
   }
 };
 
-let language = /^pt\b/i.test(navigator.language || '') ? 'pt' : 'en';
+// The site's text. English by default; users can switch languages.
+let language = 'en';
 
 export function currentLanguage() {
   return language;
